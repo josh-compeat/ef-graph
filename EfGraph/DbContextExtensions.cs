@@ -28,44 +28,34 @@ namespace EfGraph
 
         public static object GetPrimaryKeyFor(this DbContext context, object obj)
         {
-            var entityType = obj.GetType();
-            var objectContext = ((IObjectContextAdapter)context).ObjectContext;
-            var metadata = objectContext.MetadataWorkspace
-                .GetItems<EntityType>(DataSpace.OSpace)
-                .SingleOrDefault(p => p.FullName == entityType.FullName);
-
-            if (metadata == null)
-            {
-                throw new InvalidOperationException(String.Format("The type {0} is not known to the DbContext.",
-                    entityType.FullName));
-            }
-
-            var keyName = metadata.KeyMembers.Select(k => k.Name).Single();
-
-            return entityType.GetProperty(keyName).GetValue(obj);
+            return GetPrimaryKeysFor(context, obj).FirstOrDefault();
         }
 
 
         public static IEnumerable<object> GetPrimaryKeysFor(this DbContext context, object obj)
         {
-            
             var entityType = obj.GetType();
-            var objectContext = ((IObjectContextAdapter)context).ObjectContext;
-            var metadata = objectContext.MetadataWorkspace
-                .GetItems<EntityType>(DataSpace.OSpace)
-                .SingleOrDefault(p => p.FullName == entityType.FullName);
-
-            if (metadata == null)
-            {
-                throw new InvalidOperationException(String.Format("The type {0} is not known to the DbContext.",
-                    entityType.FullName));
-            }
+            var metadata = GetMetadata(context, entityType);
 
             var keyNames = metadata.KeyMembers.Select(k => k.Name);
 
             return keyNames.Select(keyName => entityType.GetProperty(keyName).GetValue(obj)).ToList();
         }
 
+        private static EntityType GetMetadata(DbContext context, Type entityType)
+        {
+            var objectContext = ((IObjectContextAdapter)context).ObjectContext;
+            var metadata = objectContext.MetadataWorkspace
+                .GetItems<EntityType>(DataSpace.OSpace)
+                .SingleOrDefault(p => p.FullName == entityType.FullName);
+
+            if (metadata == null)
+            {
+                throw new InvalidOperationException(String.Format("The type {0} is not known to the DbContext.",
+                    entityType.FullName));
+            }
+            return metadata;
+        }
         /// <summary>
         /// Loads the entire object graph for a root domain object
         /// </summary>
@@ -229,7 +219,7 @@ namespace EfGraph
         /// <param name="context">The context to query</param>
         /// <param name="entityType">The type of the entity</param>
         /// <returns>A collection of navigation properties</returns>
-        private static IEnumerable<NavigationProperty> GetNavigationPropertiesForType(IObjectContextAdapter context,
+        public static IEnumerable<NavigationProperty> GetNavigationPropertiesForType(IObjectContextAdapter context,
             Type entityType)
         {
             // Do a dictionary lookup, otherwise call into EF to find all the navigation properties for a given type.
